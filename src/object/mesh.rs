@@ -2,7 +2,7 @@ use crate::shader::Shader;
 use glad_gl::gl::{
     ARRAY_BUFFER, ActiveTexture, BindBuffer, BindTexture, BindVertexArray, BufferData,
     DrawElements, ELEMENT_ARRAY_BUFFER, EnableVertexAttribArray, FALSE, FLOAT, GLsizei, GLsizeiptr,
-    GLuint, GenBuffers, GenVertexArrays, LINES, LineWidth, STATIC_DRAW, TEXTURE_2D, TEXTURE0,
+    GLuint, GenBuffers, GenVertexArrays, STATIC_DRAW, TEXTURE_2D, TEXTURE0, TRIANGLES,
     UNSIGNED_INT, VertexAttribPointer,
 };
 use glam::{Vec2, Vec3};
@@ -114,12 +114,12 @@ impl Mesh {
                 ActiveTexture(TEXTURE0 + i as u32);
                 let mut number = String::new();
                 let name = &self.textures[i].r#type;
-                if name == "texture__diffuse" {
-                    diffuse_nr += 1;
+                if name == "texture_diffuse" {
                     number = diffuse_nr.to_string();
+                    diffuse_nr += 1;
                 } else if name == "texture_specular" {
-                    specular_nr += 1;
                     number = specular_nr.to_string();
+                    specular_nr += 1;
                 }
 
                 shader.set_int(&format!("material.{}{}", name, number), i as i32);
@@ -129,10 +129,9 @@ impl Mesh {
             ActiveTexture(TEXTURE0);
 
             // draw mesh
-            LineWidth(3.0);
             BindVertexArray(self.vao);
             DrawElements(
-                LINES,
+                TRIANGLES,
                 self.indices.len() as GLsizei,
                 UNSIGNED_INT,
                 std::ptr::null(),

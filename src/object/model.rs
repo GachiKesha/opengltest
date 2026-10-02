@@ -138,18 +138,18 @@ impl Model {
         }
 
         let material = unsafe { *scene.mMaterials.add(mesh.mMaterialIndex as usize) };
-        let specular_maps = self.load_material_textures(
-            unsafe { &*material },
-            &aiTextureType_aiTextureType_SPECULAR,
-            "texture_specular",
-        );
-        textures.extend(specular_maps);
         let diffuse_maps = self.load_material_textures(
             unsafe { &*material },
             &aiTextureType_aiTextureType_DIFFUSE,
             "texture_diffuse",
         );
         textures.extend(diffuse_maps);
+        let specular_maps = self.load_material_textures(
+            unsafe { &*material },
+            &aiTextureType_aiTextureType_SPECULAR,
+            "texture_specular",
+        );
+        textures.extend(specular_maps);
 
         Mesh::new(vertices, indices, textures)
     }
