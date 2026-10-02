@@ -1,8 +1,9 @@
 use glad_gl::gl::{
     AttachShader, COMPILE_STATUS, CompileShader, CreateProgram, CreateShader, DeleteProgram,
-    DeleteShader, FALSE, FRAGMENT_SHADER, GLfloat, GLint, GLuint, GetProgramInfoLog, GetProgramiv,
-    GetShaderInfoLog, GetShaderiv, GetUniformLocation, LINK_STATUS, LinkProgram, ShaderSource,
-    Uniform1f, Uniform1i, UniformMatrix4fv, UseProgram, VERTEX_SHADER,
+    DeleteShader, FALSE, FRAGMENT_SHADER, GEOMETRY_SHADER, GLfloat, GLint, GLuint,
+    GetProgramInfoLog, GetProgramiv, GetShaderInfoLog, GetShaderiv, GetUniformLocation,
+    LINK_STATUS, LinkProgram, ShaderSource, Uniform1f, Uniform1i, UniformMatrix4fv, UseProgram,
+    VERTEX_SHADER,
 };
 use std::ffi::CString;
 pub struct Shader {
@@ -10,7 +11,11 @@ pub struct Shader {
 }
 
 impl Shader {
-    pub fn new(vertex_shader_path: &str, fragment_shader_path: &str) -> Self {
+    pub fn new(
+        vertex_shader_path: &str,
+        fragment_shader_path: &str,
+        geometry_shader_path: Option<&str>,
+    ) -> Self {
         let vertex_shader_sourcestr = Shader::read_shader_file(vertex_shader_path);
         let fragment_shader_sourcestr = Shader::read_shader_file(fragment_shader_path);
 
@@ -18,6 +23,21 @@ impl Shader {
         let fragment_shader_source = CString::new(fragment_shader_sourcestr).unwrap();
 
         unsafe {
+            let mut geometry_shader = 0;
+            if let Some(geometry_shader_path) = geometry_shader_path {
+                let geometry_shader_sourcestr = Shader::read_shader_file(geometry_shader_path);
+                let geometry_shader_source = CString::new(geometry_shader_sourcestr).unwrap();
+                geometry_shader = CreateShader(GEOMETRY_SHADER);
+                ShaderSource(
+                    geometry_shader,
+                    1,
+                    &geometry_shader_source.as_ptr(),
+                    std::ptr::null(),
+                );
+                CompileShader(geometry_shader);
+                Shader::check_compile_errors(geometry_shader, "GEOMETRY");
+            }
+
             let vertex_shader = CreateShader(VERTEX_SHADER);
             ShaderSource(
                 vertex_shader,
@@ -42,11 +62,17 @@ impl Shader {
             let shader_program = CreateProgram();
             AttachShader(shader_program, vertex_shader);
             AttachShader(shader_program, fragment_shader);
+            if geometry_shader_path.is_some() {
+                AttachShader(shader_program, geometry_shader);
+            }
             LinkProgram(shader_program);
             Shader::check_compile_errors(shader_program, "PROGRAM");
 
             DeleteShader(vertex_shader);
             DeleteShader(fragment_shader);
+            if geometry_shader_path.is_some() {
+                DeleteShader(geometry_shader);
+            }
 
             Self { shader_program }
         }

@@ -8,3 +8,5 @@ glfw = "0.63.0"
 glad-gl = { path = "./glad-gl" }
 glam = "0.33.12"
 rodio = "0.22.2"
+russimp-ng = "3.2.7"
+image = "0.25.10"
