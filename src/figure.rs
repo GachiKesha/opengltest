@@ -6,6 +6,7 @@ use glad_gl::gl::{
     UniformMatrix4fv, VertexAttribPointer,
 };
 use glam::{Mat4, Vec3};
+use glfw::ffi::glfwGetTime;
 
 use super::shader::Shader;
 
@@ -110,7 +111,7 @@ impl Figure {
             (*self.shader_ptr).r#use();
 
             // create transformations
-            let model = Mat4::IDENTITY; // make sure to initialize matrix to identity matrix first
+            let mut model = Mat4::IDENTITY; // make sure to initialize matrix to identity matrix first
             let view = glam::camera::rh::view::look_at_mat4(
                 Vec3::new(0.5, 0.5, 2.0), // Camera position
                 Vec3::new(0.0, 0.0, 0.0), // Look at the origin
@@ -122,6 +123,7 @@ impl Figure {
                 0.1,
                 100.0,
             );
+            model = model * Mat4::from_axis_angle(Vec3::Y, glfwGetTime() as f32 * 3.0);
             // retrieve the matrix uniform locations
             let model_name = CString::new("model").unwrap();
             let view_name = CString::new("view").unwrap();

@@ -1,4 +1,4 @@
-use crate::{app::App, figure::Figure, shader::Shader};
+use crate::{app::App, figure::Figure, music::Music, shader::Shader};
 use glad_gl::gl::GLuint;
 use glfw::ffi::{
     GLFW_KEY_ESCAPE, GLFW_PRESS, GLFWwindow, glfwGetKey, glfwPollEvents, glfwSetWindowShouldClose,
@@ -19,6 +19,7 @@ const COLORS: [f32; 27] = [
 const INDICES: [GLuint; 32] = [
     0, 1, 1, 2, 2, 3, 3, 0, 0, 4, 4, 7, 7, 3, 7, 6, 6, 2, 6, 5, 5, 1, 5, 4, 8, 4, 8, 5, 8, 6, 8, 7,
 ];
+const AUDIO_FILE: &str = "funkytown.mp3";
 
 pub struct Engine {}
 
@@ -43,6 +44,16 @@ impl Engine {
         figure.set_shader(&mut shader);
         figure.setup_vertex_object();
 
+        let music = match Music::new(AUDIO_FILE) {
+            Ok(m) => m,
+            Err(err) => {
+                eprintln!("{:?}", err);
+                return Err("Failed to load music");
+            }
+        };
+
+        music.start();
+
         unsafe {
             while glfwWindowShouldClose(app.window) == 0 {
                 self.process_input(app.window);
@@ -56,6 +67,7 @@ impl Engine {
         drop(shader);
         drop(app);
 
+        music.stop();
         unsafe {
             glfwTerminate();
         }
