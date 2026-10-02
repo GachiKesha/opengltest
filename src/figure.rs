@@ -103,12 +103,10 @@ impl Figure {
         }
     }
 
-    pub fn draw(&mut self, scr_width: i32, scr_height: i32) {
+    pub fn update(&mut self, scr_width: i32, scr_height: i32) {
         unsafe {
             ClearColor(1.0, 1.0, 1.0, 1.0);
-            LineWidth(3.0);
             Clear(COLOR_BUFFER_BIT);
-            (*self.shader_ptr).r#use();
 
             // create transformations
             let mut model = Mat4::IDENTITY; // make sure to initialize matrix to identity matrix first
@@ -124,6 +122,7 @@ impl Figure {
                 100.0,
             );
             model = model * Mat4::from_axis_angle(Vec3::Y, glfwGetTime() as f32 * 3.0);
+            (*self.shader_ptr).r#use();
             // retrieve the matrix uniform locations
             let model_name = CString::new("model").unwrap();
             let view_name = CString::new("view").unwrap();
@@ -136,7 +135,12 @@ impl Figure {
             UniformMatrix4fv(view_loc, 1, FALSE, &view.x_axis.x);
             // note: currently we set the projection matrix each frame, but since the projection matrix rarely changes it's often best practice to set it outside the main loop only once.
             (*self.shader_ptr).set_mat4("projection", &projection);
+        }
+    }
 
+    pub fn draw(&self) {
+        unsafe {
+            LineWidth(3.0);
             BindVertexArray(self.vao);
             DrawElements(
                 LINES,

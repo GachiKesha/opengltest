@@ -57,7 +57,8 @@ impl Engine {
         unsafe {
             while glfwWindowShouldClose(app.window) == 0 {
                 self.process_input(app.window);
-                figure.draw(WINDOW_WIDTH, WINDOW_HEIGHT);
+                figure.update(WINDOW_WIDTH, WINDOW_HEIGHT);
+                figure.draw();
                 glfwPollEvents();
                 glfwSwapBuffers(app.window);
             }
