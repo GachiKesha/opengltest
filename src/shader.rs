@@ -1,8 +1,8 @@
 use glad_gl::gl::{
     AttachShader, COMPILE_STATUS, CompileShader, CreateProgram, CreateShader, DeleteProgram,
-    DeleteShader, FRAGMENT_SHADER, GLfloat, GLint, GLuint, GetProgramInfoLog, GetProgramiv,
+    DeleteShader, FALSE, FRAGMENT_SHADER, GLfloat, GLint, GLuint, GetProgramInfoLog, GetProgramiv,
     GetShaderInfoLog, GetShaderiv, GetUniformLocation, LINK_STATUS, LinkProgram, ShaderSource,
-    Uniform1f, Uniform1i, UseProgram, VERTEX_SHADER,
+    Uniform1f, Uniform1i, UniformMatrix4fv, UseProgram, VERTEX_SHADER,
 };
 use std::ffi::CString;
 pub struct Shader {
@@ -59,31 +59,39 @@ impl Shader {
     }
 
     pub fn set_bool(&self, name: &str, value: bool) {
-        let name = CString::new(name).unwrap();
         unsafe {
             Uniform1i(
-                GetUniformLocation(self.shader_program, name.as_ptr()),
+                GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
                 value as GLint,
             );
         }
     }
 
     pub fn set_int(&self, name: &str, value: GLint) {
-        let name = CString::new(name).unwrap();
         unsafe {
             Uniform1i(
-                GetUniformLocation(self.shader_program, name.as_ptr()),
+                GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
                 value,
             );
         }
     }
 
     pub fn set_float(&self, name: &str, value: GLfloat) {
-        let name = CString::new(name).unwrap();
         unsafe {
             Uniform1f(
-                GetUniformLocation(self.shader_program, name.as_ptr()),
+                GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
                 value,
+            );
+        }
+    }
+
+    pub fn set_mat4(&self, name: &str, mat: &glam::Mat4) {
+        unsafe {
+            UniformMatrix4fv(
+                GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
+                1,
+                FALSE,
+                &mat.x_axis.x,
             );
         }
     }

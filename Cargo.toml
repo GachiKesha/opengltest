@@ -6,3 +6,4 @@ edition = "2024"
 [dependencies]
 glfw = "0.63.0"
 glad-gl = { path = "./glad-gl" }
+glam = "0.33.12"
