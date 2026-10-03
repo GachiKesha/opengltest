@@ -107,22 +107,15 @@ impl Mesh {
 
     pub fn draw(&self, shader: &Shader) {
         unsafe {
-            let mut diffuse_nr = 1u32;
-            let mut specular_nr = 1u32;
-
             for i in 0..self.textures.len() {
                 ActiveTexture(TEXTURE0 + i as u32);
-                let mut number = String::new();
                 let name = &self.textures[i].r#type;
                 if name == "texture_diffuse" {
-                    number = diffuse_nr.to_string();
-                    diffuse_nr += 1;
+                    shader.set_int("material.diffuse", i as i32);
                 } else if name == "texture_specular" {
-                    number = specular_nr.to_string();
-                    specular_nr += 1;
+                    shader.set_int("material.specular", i as i32);
                 }
 
-                shader.set_int(&format!("material.{}{}", name, number), i as i32);
                 BindTexture(TEXTURE_2D, self.textures[i].id);
             }
 

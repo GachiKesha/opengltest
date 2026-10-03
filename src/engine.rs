@@ -39,6 +39,9 @@ impl Engine {
 
         music.start();
 
+        shader.r#use();
+        setup_light(&shader);
+
         unsafe {
             while glfwWindowShouldClose(app.window) == 0 {
                 self.process_input(app.window);
@@ -70,6 +73,76 @@ impl Engine {
             }
         }
     }
+}
+
+fn setup_light(light_shader: &Shader) {
+    let point_light_positions = vec![
+        Vec3::new(0.7, 0.2, 2.0),
+        Vec3::new(2.3, -3.3, -4.0),
+        Vec3::new(-4.0, 2.0, -12.0),
+        Vec3::new(0.0, 0.0, -3.0),
+    ];
+
+    let camera_pos = Vec3::new(45.0, 25.0, 0.0);
+    let target = Vec3::new(0.0, 10.0, 0.0);
+    let camera_dir = (target - camera_pos).normalize();
+
+    light_shader.set_vec3("viewPos", &camera_pos);
+    light_shader.set_float("material.shininess", 32.0);
+    /*
+       Here we set all the uniforms for the 5/6 types of lights we have. We have to set them manually and index
+       the proper PointLight struct in the array to set each uniform variable. This can be done more code-friendly
+       by defining light types as classes and set their values in there, or by using a more efficient uniform approach
+       by using 'Uniform buffer objects', but that is something we'll discuss in the 'Advanced GLSL' tutorial.
+    */
+    // directional light
+    light_shader.set_vec3("dirLight.direction", &Vec3::new(-0.2, -1.0, -0.3));
+    light_shader.set_vec3("dirLight.ambient", &Vec3::new(0.05, 0.05, 0.05));
+    light_shader.set_vec3("dirLight.diffuse", &Vec3::new(0.4, 0.4, 0.4));
+    light_shader.set_vec3("dirLight.specular", &Vec3::new(0.5, 0.5, 0.5));
+    // point light 1
+    light_shader.set_vec3("pointLights[0].position", &point_light_positions[0]);
+    light_shader.set_vec3("pointLights[0].ambient", &Vec3::new(0.05, 0.05, 0.05));
+    light_shader.set_vec3("pointLights[0].diffuse", &Vec3::new(0.8, 0.8, 0.8));
+    light_shader.set_vec3("pointLights[0].specular", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_float("pointLights[0].constant", 1.0);
+    light_shader.set_float("pointLights[0].linear", 0.09);
+    light_shader.set_float("pointLights[0].quadratic", 0.032);
+    // point light 2
+    light_shader.set_vec3("pointLights[1].position", &point_light_positions[1]);
+    light_shader.set_vec3("pointLights[1].ambient", &Vec3::new(0.05, 0.05, 0.05));
+    light_shader.set_vec3("pointLights[1].diffuse", &Vec3::new(0.8, 0.8, 0.8));
+    light_shader.set_vec3("pointLights[1].specular", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_float("pointLights[1].constant", 1.0);
+    light_shader.set_float("pointLights[1].linear", 0.09);
+    light_shader.set_float("pointLights[1].quadratic", 0.032);
+    // point light 3
+    light_shader.set_vec3("pointLights[2].position", &point_light_positions[2]);
+    light_shader.set_vec3("pointLights[2].ambient", &Vec3::new(0.05, 0.05, 0.05));
+    light_shader.set_vec3("pointLights[2].diffuse", &Vec3::new(0.8, 0.8, 0.8));
+    light_shader.set_vec3("pointLights[2].specular", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_float("pointLights[2].constant", 1.0);
+    light_shader.set_float("pointLights[2].linear", 0.09);
+    light_shader.set_float("pointLights[2].quadratic", 0.032);
+    // point light 4
+    light_shader.set_vec3("pointLights[3].position", &point_light_positions[3]);
+    light_shader.set_vec3("pointLights[3].ambient", &Vec3::new(0.05, 0.05, 0.05));
+    light_shader.set_vec3("pointLights[3].diffuse", &Vec3::new(0.8, 0.8, 0.8));
+    light_shader.set_vec3("pointLights[3].specular", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_float("pointLights[3].constant", 1.0);
+    light_shader.set_float("pointLights[3].linear", 0.09);
+    light_shader.set_float("pointLights[3].quadratic", 0.032);
+    // spotLight
+    light_shader.set_vec3("spotLight.position", &camera_pos);
+    light_shader.set_vec3("spotLight.direction", &camera_dir);
+    light_shader.set_vec3("spotLight.ambient", &Vec3::new(0.0, 0.0, 0.0));
+    light_shader.set_vec3("spotLight.diffuse", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_vec3("spotLight.specular", &Vec3::new(1.0, 1.0, 1.0));
+    light_shader.set_float("spotLight.constant", 1.0);
+    light_shader.set_float("spotLight.linear", 0.09);
+    light_shader.set_float("spotLight.quadratic", 0.032);
+    light_shader.set_float("spotLight.cutOff", 12.5_f32.to_radians().cos());
+    light_shader.set_float("spotLight.outerCutOff", 15f32.to_radians().cos());
 }
 
 fn rotate_view(shader: &Shader) {

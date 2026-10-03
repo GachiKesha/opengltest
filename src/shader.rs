@@ -2,8 +2,8 @@ use glad_gl::gl::{
     AttachShader, COMPILE_STATUS, CompileShader, CreateProgram, CreateShader, DeleteProgram,
     DeleteShader, FALSE, FRAGMENT_SHADER, GEOMETRY_SHADER, GLfloat, GLint, GLuint,
     GetProgramInfoLog, GetProgramiv, GetShaderInfoLog, GetShaderiv, GetUniformLocation,
-    LINK_STATUS, LinkProgram, ShaderSource, Uniform1f, Uniform1i, UniformMatrix4fv, UseProgram,
-    VERTEX_SHADER,
+    LINK_STATUS, LinkProgram, ShaderSource, Uniform1f, Uniform1i, Uniform3fv, UniformMatrix4fv,
+    UseProgram, VERTEX_SHADER,
 };
 use std::ffi::CString;
 pub struct Shader {
@@ -107,6 +107,16 @@ impl Shader {
             Uniform1f(
                 GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
                 value,
+            );
+        }
+    }
+
+    pub fn set_vec3(&self, name: &str, vec: &glam::Vec3) {
+        unsafe {
+            Uniform3fv(
+                GetUniformLocation(self.shader_program, CString::new(name).unwrap().as_ptr()),
+                1,
+                &vec.x,
             );
         }
     }
