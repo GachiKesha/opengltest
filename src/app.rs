@@ -1,8 +1,9 @@
 use glfw::ffi::{
-    GLFW_CONTEXT_VERSION_MAJOR, GLFW_CONTEXT_VERSION_MINOR, GLFW_OPENGL_CORE_PROFILE,
-    GLFW_OPENGL_PROFILE, GLFWwindow, glfwCreateWindow, glfwGetFramebufferSize, glfwGetProcAddress,
-    glfwInit, glfwMakeContextCurrent, glfwSetFramebufferSizeCallback, glfwTerminate,
-    glfwWindowHint,
+    GLFW_CONTEXT_VERSION_MAJOR, GLFW_CONTEXT_VERSION_MINOR, GLFW_CURSOR, GLFW_CURSOR_DISABLED,
+    GLFW_CURSOR_NORMAL, GLFW_OPENGL_CORE_PROFILE, GLFW_OPENGL_PROFILE, GLFWwindow,
+    glfwCreateWindow, glfwGetFramebufferSize, glfwGetProcAddress, glfwGetWindowUserPointer,
+    glfwInit, glfwMakeContextCurrent, glfwSetFramebufferSizeCallback, glfwSetInputMode,
+    glfwSetScrollCallback, glfwTerminate, glfwWindowHint,
 };
 
 pub struct App {
@@ -63,14 +64,38 @@ impl App {
             glad_gl::gl::Viewport(0, 0, framebuffer_width, framebuffer_height);
 
             glfwSetFramebufferSizeCallback(self.window, Some(framebuffer_size_callback));
+            glfwSetScrollCallback(self.window, Some(scroll_callback));
         }
 
         Ok(())
+    }
+
+    pub fn set_cursor_captured(&self, captured: bool) {
+        unsafe {
+            glfwSetInputMode(
+                self.window,
+                GLFW_CURSOR,
+                if captured {
+                    GLFW_CURSOR_DISABLED
+                } else {
+                    GLFW_CURSOR_NORMAL
+                },
+            );
+        }
     }
 }
 
 unsafe extern "C" fn framebuffer_size_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
     unsafe {
         glad_gl::gl::Viewport(0, 0, width, height);
+    }
+}
+
+unsafe extern "C" fn scroll_callback(window: *mut GLFWwindow, _xoffset: f64, yoffset: f64) {
+    unsafe {
+        let scroll_y = glfwGetWindowUserPointer(window) as *mut f64;
+        if !scroll_y.is_null() {
+            *scroll_y += yoffset;
+        }
     }
 }
