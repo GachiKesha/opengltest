@@ -1,9 +1,9 @@
 use glad_gl::gl::{
     AttachShader, COMPILE_STATUS, CompileShader, CreateProgram, CreateShader, DeleteProgram,
-    DeleteShader, FALSE, FRAGMENT_SHADER, GEOMETRY_SHADER, GLfloat, GLint, GLuint,
+    DeleteShader, FALSE, FRAGMENT_SHADER, GEOMETRY_SHADER, GLchar, GLfloat, GLint, GLsizei, GLuint,
     GetProgramInfoLog, GetProgramiv, GetShaderInfoLog, GetShaderiv, GetUniformLocation,
-    LINK_STATUS, LinkProgram, ShaderSource, Uniform1f, Uniform1i, Uniform3fv, UniformMatrix4fv,
-    UseProgram, VERTEX_SHADER,
+    INFO_LOG_LENGTH, LINK_STATUS, LinkProgram, ShaderSource, Uniform1f, Uniform1i, Uniform3fv,
+    UniformMatrix4fv, UseProgram, VERTEX_SHADER,
 };
 use std::ffi::CString;
 pub struct Shader {
@@ -145,23 +145,40 @@ impl Shader {
     fn check_compile_errors(shader: GLuint, r#type: &str) {
         unsafe {
             let mut success: GLint = 0;
-            let mut info_log = vec![0i8; 1024];
+            let mut info_log = [0 as GLchar; INFO_LOG_LENGTH as usize];
+            let mut length: GLsizei = 0;
             if r#type == "PROGRAM" {
                 GetProgramiv(shader, LINK_STATUS, &mut success);
                 if success == 0 {
-                    GetProgramInfoLog(shader, 1024, std::ptr::null_mut(), info_log.as_mut_ptr());
+                    GetProgramInfoLog(
+                        shader,
+                        info_log.len() as GLsizei,
+                        &mut length,
+                        info_log.as_mut_ptr(),
+                    );
+                    let log =
+                        std::slice::from_raw_parts(info_log.as_ptr() as *const u8, length as usize);
                     println!(
-                        "ERROR::SHADER::{}::LINKING_FAILED\n{:?}\n -- --------------------------------------------------- -- ",
-                        r#type, info_log
+                        "ERROR::SHADER::{}::LINKING_FAILED\n{}\n -- --------------------------------------------------- -- ",
+                        r#type,
+                        String::from_utf8_lossy(log)
                     );
                 }
             } else {
                 GetShaderiv(shader, COMPILE_STATUS, &mut success);
                 if success == 0 {
-                    GetShaderInfoLog(shader, 1024, std::ptr::null_mut(), info_log.as_mut_ptr());
+                    GetShaderInfoLog(
+                        shader,
+                        info_log.len() as GLsizei,
+                        &mut length,
+                        info_log.as_mut_ptr(),
+                    );
+                    let log =
+                        std::slice::from_raw_parts(info_log.as_ptr() as *const u8, length as usize);
                     println!(
-                        "ERROR::SHADER::{}::COMPILATION_FAILED\n{:?}\n -- --------------------------------------------------- -- ",
-                        r#type, info_log
+                        "ERROR::SHADER::{}::COMPILATION_FAILED\n{}\n -- --------------------------------------------------- -- ",
+                        r#type,
+                        String::from_utf8_lossy(log)
                     );
                 }
             }
