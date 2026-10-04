@@ -6,7 +6,7 @@ use crate::{
     shader::Shader,
 };
 use glad_gl::gl::{COLOR_BUFFER_BIT, Clear, DEPTH_BUFFER_BIT, DEPTH_TEST, Enable};
-use glam::{Mat4, Vec3};
+use glam::{Mat4, Vec2, Vec3};
 use glfw::ffi::{
     GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_ESCAPE, GLFW_KEY_S, GLFW_KEY_W, GLFW_MOUSE_BUTTON_LEFT,
     GLFW_PRESS, GLFWwindow, glfwGetCursorPos, glfwGetKey, glfwGetMouseButton, glfwGetTime,
@@ -16,7 +16,7 @@ use glfw::ffi::{
 
 const WINDOW_WIDTH: i32 = 1280;
 const WINDOW_HEIGHT: i32 = 720;
-const AUDIO_FILE: &str = "funkytown.mp3";
+const AUDIO_FILE: &str = "bad-to-the-bone.mp3";
 const PEAK_MODEL: &str = "models/12140_Skull_v3_L2.obj";
 
 pub struct Engine {}
@@ -37,6 +37,7 @@ impl Engine {
         let mut first_mouse = true;
         let mut last_frame = 0.0;
         let mut scroll_y = 0.0;
+        let mut was_facing_camera = false;
 
         let mut was_left_pressed = false;
 
@@ -63,7 +64,7 @@ impl Engine {
             }
         };
 
-        music.start();
+        // music.start();
 
         shader.r#use();
         setup_light(&shader, &camera);
@@ -97,7 +98,15 @@ impl Engine {
                     scroll_y = 0.0;
                 }
 
-                rotate_view(&shader, &camera);
+                let facing_camera = rotate_view(&shader, &camera);
+                if facing_camera != was_facing_camera {
+                    if facing_camera {
+                        music.start();
+                    } else {
+                        music.stop();
+                    }
+                    was_facing_camera = facing_camera;
+                }
                 Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                 model.draw(&shader);
                 glfwPollEvents();
@@ -255,11 +264,20 @@ fn setup_light(light_shader: &Shader, camera: &Camera) {
     light_shader.set_float("spotLight.outerCutOff", 15f32.to_radians().cos());
 }
 
-fn rotate_view(shader: &Shader, camera: &Camera) {
+fn rotate_view(shader: &Shader, camera: &Camera) -> bool {
     unsafe {
         let mut model = Mat4::from_rotation_x(-90.0_f32.to_radians());
         let time = glfwGetTime() as f32;
-        model = model * Mat4::from_axis_angle(Vec3::Z, time * 3.0);
+        model = model * Mat4::from_axis_angle(Vec3::Z, time);
+
+        let model_position = model.transform_point3(Vec3::ZERO);
+        let to_camera = camera.position - model_position;
+        let to_camera_2d = Vec2::new(to_camera.x, to_camera.z);
+        let model_forward_3d = model.transform_vector3(-Vec3::Y);
+        let model_forward_2d = Vec2::new(model_forward_3d.x, model_forward_3d.z);
+        let dot = model_forward_2d.normalize().dot(to_camera_2d.normalize());
+        let margin = 45.0_f32.to_radians().cos();
+        let facing_camera = dot >= margin;
 
         let view = camera.get_view_matrix();
         let projection = glam::camera::rh::proj::opengl::perspective(
@@ -273,5 +291,6 @@ fn rotate_view(shader: &Shader, camera: &Camera) {
         shader.set_mat4("model", &model);
         shader.set_mat4("view", &view);
         shader.set_mat4("projection", &projection);
+        facing_camera
     }
 }
