@@ -1,6 +1,6 @@
 use opengltest::engine::Engine;
 
-fn main() -> Result<(), &'static str> {
+fn main() -> Result<(), String> {
     let wroom = Engine {};
     wroom.run()
 }

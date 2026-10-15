@@ -5,13 +5,19 @@ use crate::{
     object::Model,
     shader::Shader,
 };
-use glad_gl::gl::{COLOR_BUFFER_BIT, Clear, DEPTH_BUFFER_BIT, DEPTH_TEST, Enable};
+use glad_gl::gl::{COLOR_BUFFER_BIT, Clear, DEPTH_BUFFER_BIT, DEPTH_TEST, Enable, Viewport};
 use glam::{Mat4, Vec2, Vec3};
-use glfw::ffi::{
-    GLFW_KEY_A, GLFW_KEY_D, GLFW_KEY_ESCAPE, GLFW_KEY_S, GLFW_KEY_W, GLFW_MOUSE_BUTTON_LEFT,
-    GLFW_PRESS, GLFWwindow, glfwGetCursorPos, glfwGetKey, glfwGetMouseButton, glfwGetTime,
-    glfwPollEvents, glfwSetWindowShouldClose, glfwSetWindowUserPointer, glfwSwapBuffers,
-    glfwTerminate, glfwWindowShouldClose,
+use sdl3::sys::{
+    events::{
+        SDL_EVENT_KEY_DOWN, SDL_EVENT_MOUSE_BUTTON_DOWN, SDL_EVENT_MOUSE_MOTION,
+        SDL_EVENT_MOUSE_WHEEL, SDL_EVENT_QUIT, SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED,
+        SDL_EVENT_WINDOW_RESIZED, SDL_Event, SDL_EventType, SDL_PollEvent,
+    },
+    init::SDL_Quit,
+    keycode::{SDLK_A, SDLK_D, SDLK_ESCAPE, SDLK_S, SDLK_W},
+    mouse::SDL_BUTTON_LEFT,
+    timer::SDL_GetTicks,
+    video::SDL_GL_SwapWindow,
 };
 
 const WINDOW_WIDTH: i32 = 1280;
@@ -26,7 +32,7 @@ impl Engine {
     const FRAGMENT_SHADER_PATH: &str = "./shaders/fragment.glsl";
     const WINDOW_DISPLAY_NAME: &str = "Cubey thing";
 
-    pub fn run(&self) -> Result<(), &'static str> {
+    pub fn run(&self) -> Result<(), String> {
         let mut camera: Camera = Camera {
             position: Vec3::new(45.0, 25.0, 0.0),
             ..Default::default()
@@ -36,10 +42,7 @@ impl Engine {
         let mut cursor_captured = false;
         let mut first_mouse = true;
         let mut last_frame = 0.0;
-        let mut scroll_y = 0.0;
         let mut was_facing_camera = false;
-
-        let mut was_left_pressed = false;
 
         let mut app = App::new(WINDOW_WIDTH, WINDOW_HEIGHT, Self::WINDOW_DISPLAY_NAME);
         app.run()?;
@@ -47,10 +50,6 @@ impl Engine {
 
         unsafe {
             Enable(DEPTH_TEST);
-            glfwSetWindowUserPointer(
-                app.window,
-                &mut scroll_y as *mut f64 as *mut std::ffi::c_void,
-            );
         }
 
         let shader = Shader::new(Self::VERTEX_SHADER_PATH, Self::FRAGMENT_SHADER_PATH, None);
@@ -60,7 +59,7 @@ impl Engine {
             Ok(m) => m,
             Err(err) => {
                 eprintln!("{:?}", err);
-                return Err("Failed to load music");
+                return Err("Failed to load music".to_string());
             }
         };
 
@@ -69,33 +68,66 @@ impl Engine {
         shader.r#use();
         setup_light(&shader, &camera);
 
+        let mut event = SDL_Event::default();
+        let mut running = true;
+
         unsafe {
-            while glfwWindowShouldClose(app.window) == 0 {
-                let current_frame = glfwGetTime() as f32;
+            while running {
+                let current_frame = SDL_GetTicks() as f32 / 1000.0;
                 let delta_time = current_frame - last_frame;
                 last_frame = current_frame;
 
-                process_mouse_toggle(
-                    app.window,
-                    &app,
-                    &mut cursor_captured,
-                    &mut first_mouse,
-                    &mut was_left_pressed,
-                );
+                while SDL_PollEvent(&mut event) {
+                    match SDL_EventType(event.r#type) {
+                        SDL_EVENT_QUIT => running = false,
+                        SDL_EVENT_WINDOW_RESIZED => {
+                            Viewport(0, 0, event.window.data1, event.window.data2)
+                        }
+                        SDL_EVENT_WINDOW_PIXEL_SIZE_CHANGED => {
+                            let width = event.window.data1;
+                            let height = event.window.data2;
+                            Viewport(0, 0, width, height);
+                        }
+                        SDL_EVENT_KEY_DOWN => match event.key.key {
+                            SDLK_ESCAPE => running = false,
+                            SDLK_W => camera.process_keyboard(CameraMovement::Forward, delta_time),
+                            SDLK_S => camera.process_keyboard(CameraMovement::Backward, delta_time),
+                            SDLK_A => camera.process_keyboard(CameraMovement::Left, delta_time),
+                            SDLK_D => camera.process_keyboard(CameraMovement::Right, delta_time),
+                            _ => {}
+                        },
+                        SDL_EVENT_MOUSE_BUTTON_DOWN => {
+                            if event.button.button == SDL_BUTTON_LEFT as u8 {
+                                cursor_captured = !cursor_captured;
+                                app.set_cursor_captured(cursor_captured);
+                                first_mouse = true;
+                            }
+                        }
+                        SDL_EVENT_MOUSE_WHEEL => camera.process_mouse_scroll(event.wheel.y),
+                        SDL_EVENT_MOUSE_MOTION => {
+                            if cursor_captured {
+                                let motion = event.motion;
 
-                process_input(app.window, &mut camera, delta_time);
-                if cursor_captured {
-                    process_mouse(
-                        app.window,
-                        &mut camera,
-                        &mut first_mouse,
-                        &mut last_x,
-                        &mut last_y,
-                    );
-                };
-                if scroll_y != 0.0 {
-                    camera.process_mouse_scroll(scroll_y as f32);
-                    scroll_y = 0.0;
+                                let xpos = motion.x;
+                                let ypos = motion.y;
+
+                                if first_mouse {
+                                    last_x = xpos;
+                                    last_y = ypos;
+                                    first_mouse = false;
+                                }
+
+                                let xoffset = xpos - last_x;
+                                let yoffset = last_y - ypos;
+
+                                last_x = xpos;
+                                last_y = ypos;
+
+                                camera.process_mouse_movement(xoffset, yoffset, None);
+                            }
+                        }
+                        _ => {}
+                    }
                 }
 
                 let facing_camera = rotate_view(&shader, &camera);
@@ -109,8 +141,7 @@ impl Engine {
                 }
                 Clear(COLOR_BUFFER_BIT | DEPTH_BUFFER_BIT);
                 model.draw(&shader);
-                glfwPollEvents();
-                glfwSwapBuffers(app.window);
+                SDL_GL_SwapWindow(app.window);
             }
         }
 
@@ -120,79 +151,11 @@ impl Engine {
 
         music.stop();
         unsafe {
-            glfwTerminate();
+            SDL_Quit();
         }
 
         Ok(())
     }
-}
-
-fn process_input(window: *mut GLFWwindow, camera: &mut Camera, delta_time: f32) {
-    unsafe {
-        if glfwGetKey(window, GLFW_KEY_ESCAPE) == GLFW_PRESS {
-            glfwSetWindowShouldClose(window, std::ffi::c_int::from(true));
-        }
-        if glfwGetKey(window, GLFW_KEY_W) == GLFW_PRESS {
-            camera.process_keyboard(CameraMovement::Forward, delta_time);
-        }
-        if glfwGetKey(window, GLFW_KEY_S) == GLFW_PRESS {
-            camera.process_keyboard(CameraMovement::Backward, delta_time);
-        }
-        if glfwGetKey(window, GLFW_KEY_A) == GLFW_PRESS {
-            camera.process_keyboard(CameraMovement::Left, delta_time);
-        }
-        if glfwGetKey(window, GLFW_KEY_D) == GLFW_PRESS {
-            camera.process_keyboard(CameraMovement::Right, delta_time);
-        }
-    }
-}
-
-fn process_mouse(
-    window: *mut GLFWwindow,
-    camera: &mut Camera,
-    first_mouse: &mut bool,
-    last_x: &mut f32,
-    last_y: &mut f32,
-) {
-    let mut xpos = 0.0;
-    let mut ypos = 0.0;
-
-    unsafe { glfwGetCursorPos(window, &mut xpos, &mut ypos) };
-
-    let xpos = xpos as f32;
-    let ypos = ypos as f32;
-
-    if *first_mouse {
-        *last_x = xpos;
-        *last_y = ypos;
-        *first_mouse = false;
-    }
-
-    let xoffset = xpos - *last_x;
-    let yoffset = *last_y - ypos; // reversed since y-coordinates go from bottom to top
-
-    *last_x = xpos;
-    *last_y = ypos;
-
-    camera.process_mouse_movement(xoffset, yoffset, None);
-}
-
-fn process_mouse_toggle(
-    window: *mut GLFWwindow,
-    app: &App,
-    mouse_captured: &mut bool,
-    first_mouse: &mut bool,
-    was_left_pressed: &mut bool,
-) {
-    let pressed = unsafe { glfwGetMouseButton(window, GLFW_MOUSE_BUTTON_LEFT) == GLFW_PRESS };
-
-    if pressed && !*was_left_pressed {
-        *mouse_captured = !*mouse_captured;
-        app.set_cursor_captured(*mouse_captured);
-        *first_mouse = true;
-    }
-
-    *was_left_pressed = pressed;
 }
 
 fn setup_light(light_shader: &Shader, camera: &Camera) {
@@ -267,7 +230,7 @@ fn setup_light(light_shader: &Shader, camera: &Camera) {
 fn rotate_view(shader: &Shader, camera: &Camera) -> bool {
     unsafe {
         let mut model = Mat4::from_rotation_x(-90.0_f32.to_radians());
-        let time = glfwGetTime() as f32;
+        let time = SDL_GetTicks() as f32 / 1000.0;
         model = model * Mat4::from_axis_angle(Vec3::Z, time);
 
         let model_position = model.transform_point3(Vec3::ZERO);

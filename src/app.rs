@@ -1,25 +1,36 @@
-use glfw::ffi::{
-    GLFW_CONTEXT_VERSION_MAJOR, GLFW_CONTEXT_VERSION_MINOR, GLFW_CURSOR, GLFW_CURSOR_DISABLED,
-    GLFW_CURSOR_NORMAL, GLFW_OPENGL_CORE_PROFILE, GLFW_OPENGL_PROFILE, GLFWwindow,
-    glfwCreateWindow, glfwGetFramebufferSize, glfwGetProcAddress, glfwGetWindowUserPointer,
-    glfwInit, glfwMakeContextCurrent, glfwSetFramebufferSizeCallback, glfwSetInputMode,
-    glfwSetScrollCallback, glfwTerminate, glfwWindowHint,
+use sdl3::sys::{
+    error::SDL_GetError,
+    init::{SDL_INIT_VIDEO, SDL_Init, SDL_Quit},
+    mouse::SDL_SetWindowRelativeMouseMode,
+    video::{
+        SDL_CreateWindow, SDL_DestroyWindow, SDL_GL_CONTEXT_MAJOR_VERSION,
+        SDL_GL_CONTEXT_MINOR_VERSION, SDL_GL_CONTEXT_PROFILE_CORE, SDL_GL_CONTEXT_PROFILE_MASK,
+        SDL_GL_CreateContext, SDL_GL_DOUBLEBUFFER, SDL_GL_GetProcAddress, SDL_GL_SetAttribute,
+        SDL_WINDOW_OPENGL, SDL_WINDOW_RESIZABLE, SDL_Window,
+    },
 };
 
 pub struct App {
     pub width: i32,
     pub height: i32,
     pub title: &'static str,
-    pub window: *mut GLFWwindow,
+    pub window: *mut SDL_Window,
 }
 
 impl App {
     pub fn new(width: i32, height: i32, title: &'static str) -> Self {
         unsafe {
-            glfwInit();
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-            glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 6);
-            glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+            if SDL_Init(SDL_INIT_VIDEO) == false {
+                eprint!("SDL_Init Error: {}", *SDL_GetError());
+            }
+
+            SDL_GL_SetAttribute(
+                SDL_GL_CONTEXT_PROFILE_MASK,
+                SDL_GL_CONTEXT_PROFILE_CORE.value(),
+            );
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 4);
+            SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 6);
+            SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         }
         Self {
             width,
@@ -29,27 +40,34 @@ impl App {
         }
     }
 
-    pub fn run(&mut self) -> Result<(), &'static str> {
+    pub fn run(&mut self) -> Result<(), String> {
         unsafe {
             let title = std::ffi::CString::new(self.title).unwrap();
-            self.window = glfwCreateWindow(
+            self.window = SDL_CreateWindow(
+                title.as_ptr(),
                 self.width,
                 self.height,
-                title.as_ptr(),
-                std::ptr::null_mut(),
-                std::ptr::null_mut(),
+                SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE,
             );
 
             if self.window.is_null() {
-                glfwTerminate();
-                return Err("Failed to create GLFW window");
+                SDL_Quit();
+                return Err("Failed to create GLFW window".to_string());
             }
 
-            glfwMakeContextCurrent(self.window);
+            let context = SDL_GL_CreateContext(self.window);
+            if context.is_null() {
+                SDL_DestroyWindow(self.window);
+                SDL_Quit();
+                return Err(format!(
+                    "Failed to create OpenGL context: {}",
+                    *SDL_GetError(),
+                ));
+            }
 
             glad_gl::gl::load(|name| {
                 let name = std::ffi::CString::new(name).unwrap();
-                let ptr = glfwGetProcAddress(name.as_ptr())
+                let ptr = SDL_GL_GetProcAddress(name.as_ptr())
                     .map_or(std::ptr::null(), |p| p as *const std::ffi::c_void);
                 if ptr.is_null() {
                     eprintln!("GL function not found: {name:?}");
@@ -57,14 +75,7 @@ impl App {
                 ptr
             });
 
-            let mut framebuffer_width = 0;
-            let mut framebuffer_height = 0;
-
-            glfwGetFramebufferSize(self.window, &mut framebuffer_width, &mut framebuffer_height);
-            glad_gl::gl::Viewport(0, 0, framebuffer_width, framebuffer_height);
-
-            glfwSetFramebufferSizeCallback(self.window, Some(framebuffer_size_callback));
-            glfwSetScrollCallback(self.window, Some(scroll_callback));
+            glad_gl::gl::Viewport(0, 0, self.width, self.height);
         }
 
         Ok(())
@@ -72,30 +83,7 @@ impl App {
 
     pub fn set_cursor_captured(&self, captured: bool) {
         unsafe {
-            glfwSetInputMode(
-                self.window,
-                GLFW_CURSOR,
-                if captured {
-                    GLFW_CURSOR_DISABLED
-                } else {
-                    GLFW_CURSOR_NORMAL
-                },
-            );
-        }
-    }
-}
-
-unsafe extern "C" fn framebuffer_size_callback(_window: *mut GLFWwindow, width: i32, height: i32) {
-    unsafe {
-        glad_gl::gl::Viewport(0, 0, width, height);
-    }
-}
-
-unsafe extern "C" fn scroll_callback(window: *mut GLFWwindow, _xoffset: f64, yoffset: f64) {
-    unsafe {
-        let scroll_y = glfwGetWindowUserPointer(window) as *mut f64;
-        if !scroll_y.is_null() {
-            *scroll_y += yoffset;
+            SDL_SetWindowRelativeMouseMode(self.window, captured);
         }
     }
 }
